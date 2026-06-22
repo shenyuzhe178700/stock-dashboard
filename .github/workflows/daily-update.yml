@@ -1,0 +1,53 @@
+﻿name: Daily Update
+on:
+  schedule:
+    - cron: "0 10 * * *"
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      
+      - name: Install dependencies
+        run: pip install pandas numpy baostock lightgbm scikit-learn matplotlib
+
+      - name: Run quant models
+        run: |
+          python main.py fetch
+          python main.py hot
+          python main.py capital
+          python main.py all
+
+      - name: Generate stock analysis
+        run: python build_stock_analysis.py
+
+      - name: Build HTML dashboard
+        run: python build_html.py
+
+      - name: Inject stock data
+        run: |
+          python -c "
+          import json
+          with open('outputs/quant_dashboard.html','r',encoding='utf-8') as f: html=f.read()
+          with open('outputs/stock_analysis.json','r',encoding='utf-8') as f: stock=json.load(f)
+          html=html.replace('__STOCK_DATA_PLACEHOLDER__',json.dumps(stock,ensure_ascii=False))
+          for n in ['quant_dashboard.html','index.html']:
+            with open('outputs/'+n,'w',encoding='utf-8') as f: f.write(html)
+          print('Stock data injected')
+          "
+
+      - name: Commit & Push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "actions@github.com"
+          cp outputs/index.html index.html
+          git add index.html outputs/
+          git diff --staged --quiet || (git commit -m "Daily update" && git push)
