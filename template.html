@@ -1,0 +1,260 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A股量化选股系统 | {{DATE_SHORT}}</title>
+<style>
+:root { --bg: #0b1120; --surface: #111827; --card: #1a2332; --border: #1e3a5f; --accent: #38bdf8; --accent2: #818cf8; --text: #e2e8f0; --text2: #94a3b8; --up: #22c55e; --down: #ef4444; --radius: 12px; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; background: var(--bg); color: var(--text); line-height:1.6; }
+.header { background: linear-gradient(135deg, #0f2744 0%, #0b1120 60%, #1a1040 100%); padding: 28px 32px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.header-left h1 { font-size: 22px; font-weight: 700; color: var(--accent); }
+.header-left h1 span { color: var(--accent2); font-size: 14px; font-weight: 400; margin-left: 8px; }
+.header-left .sub { font-size: 12px; color: var(--text2); margin-top: 4px; }
+.header-right .date { font-size: 13px; color: var(--text2); }
+.header-right .live { display: inline-block; width: 8px; height: 8px; background: var(--up); border-radius: 50%; margin-right: 6px; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 20px 24px; }
+.stat-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; }
+.stat-card .label { font-size: 12px; color: var(--text2); letter-spacing: 1px; }
+.stat-card .value { font-size: 28px; font-weight: 700; color: var(--accent); margin-top: 4px; }
+.stat-card .desc { font-size: 11px; color: var(--text2); margin-top: 2px; }
+.tabs { display: flex; padding: 0 32px; border-bottom: 2px solid var(--border); background: var(--surface); overflow-x: auto; }
+.tab-btn { padding: 14px 24px; background: none; border: none; color: var(--text2); cursor: pointer; font-size: 14px; border-bottom: 2px solid transparent; margin-bottom: -2px; white-space: nowrap; transition: all 0.2s; font-family: inherit; }
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.content { padding: 24px; max-width: 1400px; margin: 0 auto; }
+.tab-content { display: none; animation: fadeIn 0.3s ease; }
+.tab-content.active { display: block; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; }
+.card h3 { font-size: 16px; color: var(--accent); margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.summary { background: linear-gradient(135deg, rgba(56,189,248,0.1), rgba(129,140,248,0.1)); border: 1px solid rgba(56,189,248,0.3); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 20px; font-size: 13px; color: var(--accent); }
+.table-wrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table th { background: rgba(30,58,95,0.5); color: var(--accent); padding: 10px 14px; text-align: left; border-bottom: 2px solid var(--border); font-weight: 600; white-space: nowrap; font-size: 12px; }
+.table td { padding: 9px 14px; border-bottom: 1px solid rgba(30,58,95,0.3); white-space: nowrap; }
+.table tbody tr:hover { background: rgba(56,189,248,0.06); cursor: pointer; }
+.rank { color: var(--text2); font-size: 12px; width: 32px; text-align: center; }
+.code { font-family: "SF Mono","Fira Code",monospace; color: var(--accent2); font-weight: 600; }
+.name { font-weight: 500; }
+.up { color: var(--up); font-weight: 600; }
+.down { color: var(--down); font-weight: 600; }
+.bar-wrap { display: flex; align-items: center; gap: 8px; min-width: 100px; }
+.bar-wrap .bar { height: 6px; border-radius: 3px; min-width: 1px; }
+.bar-wrap span { font-size: 11px; color: var(--text2); }
+.badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 600; white-space: nowrap; }
+.badge.hot { background: rgba(239,68,68,0.2); color: #ef4444; }
+.badge.warm { background: rgba(245,158,11,0.2); color: #f59e0b; }
+.badge.mild { background: rgba(56,189,248,0.2); color: #38bdf8; }
+.badge.cold { background: rgba(148,163,184,0.15); color: #94a3b8; }
+.chart { max-width: 100%; border-radius: var(--radius); border: 1px solid var(--border); }
+.report { background: #0b1625; border: 1px solid var(--border); border-radius: 8px; padding: 20px; font-size: 12px; line-height: 1.8; overflow-x: auto; white-space: pre-wrap; font-family: "SF Mono","Fira Code","Microsoft YaHei",monospace; color: var(--text2); max-height: 500px; overflow-y: auto; }
+.empty { text-align: center; padding: 40px; color: var(--text2); font-size: 14px; }
+.disclaimer { text-align: center; padding: 16px 24px; margin-top: 24px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text2); }
+input, select { outline: none; }
+#stockInput:focus, #stockSelect:focus { border-color: var(--accent) !important; }
+@media (max-width: 768px) {
+  .header { padding: 16px; }
+  .tabs { padding: 0 12px; }
+  .tab-btn { padding: 10px 14px; font-size: 13px; }
+  .content { padding: 12px; }
+  .stat-row { grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 12px; }
+  .card { padding: 14px; }
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <h1>A股量化选股系统 <span>v2.0</span></h1>
+    <div class="sub">多因子 · 热点板块 · 资金流向 · 个股分析 | LightGBM驱动</div>
+  </div>
+  <div class="header-right">
+    <div class="date"><span class="live"></span>数据更新: {{NOW}}</div>
+    <div style="font-size:11px;color:var(--text2);margin-top:2px">baostock实时行情 | HS300+全A</div>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="hot">热点板块</button>
+  <button class="tab-btn" data-tab="capital">资金认可度</button>
+  <button class="tab-btn" data-tab="monthly">月度选股</button>
+  <button class="tab-btn" data-tab="backtest">回测曲线</button>
+  <button class="tab-btn" data-tab="search">个股分析</button>
+  <button class="tab-btn" data-tab="about">系统说明</button>
+</div>
+
+<div class="stat-row">
+  <div class="stat-card"><div class="label">短线标的</div><div class="value">{{HOT_COUNT}}</div><div class="desc">热点板块选股</div></div>
+  <div class="stat-card"><div class="label">资金热门</div><div class="value">{{CAP_COUNT}}</div><div class="desc">主力认可个股</div></div>
+  <div class="stat-card"><div class="label">月度选股</div><div class="value">{{STOCK_COUNT}}</div><div class="desc">多因子轮动</div></div>
+  <div class="stat-card"><div class="label">可查个股</div><div class="value">300</div><div class="desc">预分析走势</div></div>
+  <div class="stat-card"><div class="label">股票池</div><div class="value">5533</div><div class="desc">全A股覆盖</div></div>
+</div>
+
+<div class="content">
+
+  <!-- Hot Sector -->
+  <div class="tab-content active" id="tab-hot">
+    <div class="summary">短线模型：5日动量 + 板块补涨因子 + 21个技术指标 | 筛选有上涨空间的板块和个股</div>
+    <div class="card"><h3>板块热度排行</h3><div class="table-wrap">{{SECTOR_TABLE}}</div></div>
+    <div class="card"><h3>短线选股池 (TOP 30)</h3><div class="table-wrap">{{HOT_TABLE}}</div></div>
+  </div>
+
+  <!-- Capital Flow -->
+  <div class="tab-content" id="tab-capital">
+    <div class="summary">资金认可度模型：主力净流入 + 大单占比 + 量比 | 识别资金最认可的板块及龙头</div>
+    <div class="card"><h3>资金认可板块 TOP 12</h3><div class="table-wrap">{{CAP_SECTOR_TABLE}}</div></div>
+    <div class="card"><h3>板块热门股</h3><div class="table-wrap">{{CAP_PICK_TABLE}}</div></div>
+  </div>
+
+  <!-- Monthly -->
+  <div class="tab-content" id="tab-monthly">
+    <div class="summary">月度多因子轮动：价值/动量/质量/波动率/流动性/成长 | LightGBM回归 | 沪深300</div>
+    <div class="card"><h3>选股结果 (TOP 30)</h3><div class="table-wrap">{{STOCK_PICKS_TABLE}}</div></div>
+    <div class="card"><h3>选股报告</h3><div class="report">{{REPORT_TXT}}</div></div>
+  </div>
+
+  <!-- Backtest -->
+  <div class="tab-content" id="tab-backtest">
+    <div class="card"><h3>策略净值曲线</h3>{{BACKTEST_IMG}}</div>
+  </div>
+
+  <!-- Stock Search -->
+  <div class="tab-content" id="tab-search">
+    <div class="summary">输入股票代码查询短线/中线走势分析</div>
+    <div class="card">
+      <h3>个股走势分析</h3>
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+        <input type="text" id="stockInput" placeholder="输入代码, 如 600519" 
+          style="flex:1;min-width:180px;max-width:300px;padding:10px 16px;background:#0b1625;border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:monospace"
+          onkeyup="searchStock()">
+        <select id="stockSelect" onchange="selectStock()" 
+          style="padding:10px 12px;background:#0b1625;border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;max-width:240px">
+          <option value="">热门股票...</option>
+        </select>
+      </div>
+      <div id="stockResult" style="min-height:200px"><div class="empty">输入股票代码查看分析结果</div></div>
+    </div>
+    <div class="card">
+      <h3>推荐关注个股</h3>
+      <div id="topStocksTable" class="table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- About -->
+  <div class="tab-content" id="tab-about">
+    <div class="card"><h3>系统架构</h3>
+      <div class="report">数据源: baostock A股全量日线
+股票池: 沪深300 + 全A股(5533只)
+模型: LightGBM + 多因子 + 资金流向
+
+运行命令:
+  python main.py fetch      采集行情
+  python main.py hot        热点板块选股
+  python main.py capital    资金认可度
+  python main.py all        月度多因子
+  python main.py dashboard  启动交互看板
+
+个股分析:
+  指标: 5日涨跌 / RSI / 量比 / 偏离均线 / 振幅 / 换手率
+  评分: 综合技术面 + 动量 + 量价 打分(0-40)
+  趋势: 短线(5日) + 中线(月度) 双维度判断
+
+风险提示: 量化模型基于历史数据，不构成投资建议。
+仅供研究学习使用，入市需谨慎。</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="disclaimer">本系统仅供研究学习，不构成投资建议 | 数据: baostock | 更新: {{NOW}}</div>
+
+<!-- STOCK_DATA_JSON -->
+<script>
+var STOCK_DATA = __STOCK_DATA_PLACEHOLDER__;
+
+function searchStock() {
+  var input = document.getElementById("stockInput").value.trim().toUpperCase();
+  if (!input) { showTopPicks(); return; }
+  var found = null;
+  for (var i = 0; i < STOCK_DATA.length; i++) {
+    if (STOCK_DATA[i].code === input || STOCK_DATA[i].code.indexOf(input) === 0) { found = STOCK_DATA[i]; break; }
+  }
+  if (found) { document.getElementById("stockSelect").value = found.code; showAnalysis(found); }
+  else { document.getElementById("stockResult").innerHTML = '<div class="empty">未找到: ' + input + '</div>'; }
+}
+
+function selectStock() {
+  var code = document.getElementById("stockSelect").value;
+  if (!code) return;
+  document.getElementById("stockInput").value = code;
+  searchStock();
+}
+
+function showAnalysis(d) {
+  var score = d.total_score;
+  var sc = score > 25 ? "#22c55e" : score > 18 ? "#38bdf8" : score > 10 ? "#f59e0b" : score > 3 ? "#f97316" : "#ef4444";
+  var ret5c = d.ret_5d >= 0 ? "up" : "down";
+  var rsi = d.rsi_14;
+  var rc = rsi > 70 ? "#ef4444" : rsi < 30 ? "#22c55e" : "#38bdf8";
+  var sigs = (d.signals||[]).map(function(s){ return '<span class="badge '+(s.indexOf("超卖")>=0||s.indexOf("超跌")>=0?"mild":"cold")+'">'+s+'</span>'; }).join(" ");
+  
+  var h = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">'+
+    '<div class="stat-card"><div class="label">综合评分</div><div class="value" style="color:'+sc+'">'+score+'</div><div class="desc">'+d.rating+'</div></div>'+
+    '<div class="stat-card"><div class="label">5日涨跌</div><div class="value '+ret5c+'">'+(d.ret_5d*100).toFixed(2)+'%</div><div class="desc">'+d.short_trend+'</div></div>'+
+    '<div class="stat-card"><div class="label">中线趋势(月)</div><div class="value" style="color:'+(d.ret_1m>=0?"#22c55e":"#ef4444")+'">'+(d.ret_1m*100).toFixed(1)+'%</div><div class="desc">'+d.mid_trend+'</div></div>'+
+    '<div class="stat-card"><div class="label">RSI(14)</div><div class="value" style="color:'+rc+'">'+rsi.toFixed(1)+'</div><div class="desc">'+(rsi>70?"超买":rsi<30?"超卖":"正常")+'</div></div></div>'+
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:12px">'+
+    '<div class="stat-card"><div class="label">量比(5日)</div><div class="value" style="font-size:16px;color:#38bdf8">'+d.vol_ratio_5d.toFixed(2)+'</div></div>'+
+    '<div class="stat-card"><div class="label">距20日均线</div><div class="value" style="font-size:16px;color:'+(d.bias_20>=0?"#22c55e":"#ef4444")+'">'+(d.bias_20*100).toFixed(1)+'%</div></div>'+
+    '<div class="stat-card"><div class="label">振幅</div><div class="value" style="font-size:16px;color:#f59e0b">'+(d.amplitude*100).toFixed(1)+'%</div></div>'+
+    '<div class="stat-card"><div class="label">换手率</div><div class="value" style="font-size:16px;color:#94a3b8">'+d.turnover_rate.toFixed(2)+'%</div></div></div>'+
+    '<div style="margin-top:12px;padding:10px 14px;background:#0b1625;border-radius:8px;border:1px solid var(--border)">'+
+    '<span style="color:var(--text2);font-size:12px">信号: </span>'+sigs+'<span style="color:#64748b;font-size:11px;margin-left:12px">更新: '+d.update_time+'</span></div>';
+  document.getElementById("stockResult").innerHTML = h;
+}
+
+function showTopPicks() {
+  var top = [];
+  for (var i = 0; i < STOCK_DATA.length; i++) {
+    if (STOCK_DATA[i].total_score > 18) top.push(STOCK_DATA[i]);
+  }
+  top.sort(function(a,b){ return b.total_score - a.total_score; });
+  var rows = "";
+  for (var i = 0; i < Math.min(top.length, 30); i++) {
+    var d = top[i];
+    rows += '<tr onclick="showStock(\''+d.code+'\')"><td class="rank">'+(i+1)+'</td><td class="code">'+d.code+'</td>'+
+      '<td class="'+(d.ret_5d>=0?"up":"down")+'">'+(d.ret_5d*100).toFixed(2)+'%</td>'+
+      '<td>'+d.short_trend+'</td><td>'+d.mid_trend+'</td>'+
+      '<td><span class="badge '+(d.rating==="强烈推荐"?"hot":"warm")+'">'+d.rating+'</span></td>'+
+      '<td><div class="bar-wrap"><div class="bar" style="width:'+Math.min(d.total_score/35*100,100)+'%;background:#22c55e"></div><span>'+d.total_score+'</span></div></td></tr>';
+  }
+  document.getElementById("topStocksTable").innerHTML = '<table class="table"><thead><tr><th>#</th><th>代码</th><th>5日涨跌</th><th>短线</th><th>中线</th><th>评级</th><th>评分</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  var sel = document.getElementById("stockSelect");
+  sel.innerHTML = '<option value="">热门股票...</option>';
+  for (var i = 0; i < Math.min(top.length, 20); i++) {
+    sel.innerHTML += '<option value="'+top[i].code+'">'+top[i].code+'</option>';
+  }
+}
+
+function showStock(code) { document.getElementById("stockInput").value = code; searchStock(); }
+
+// Tab switching
+document.querySelectorAll(".tab-btn").forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    var tab = this.dataset.tab;
+    document.querySelectorAll(".tab-btn").forEach(function(b){ b.classList.remove("active"); });
+    document.querySelectorAll(".tab-content").forEach(function(c){ c.classList.remove("active"); });
+    this.classList.add("active");
+    document.getElementById("tab-" + tab).classList.add("active");
+  });
+});
+
+showTopPicks();
+</script>
+</body>
+</html>
