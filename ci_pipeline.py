@@ -110,7 +110,7 @@ run_step("6. 个股快速分析")
 try:
     if not spot.empty:
         results = []
-        top_codes = spot.nlargest(100, "pct_chg")["code"].tolist() if "pct_chg" in spot.columns else spot["code"].head(100).tolist()
+        top_codes = spot.nlargest(20, "pct_chg")["code"].tolist() if "pct_chg" in spot.columns else spot["code"].head(100).tolist()
         
         for i, code in enumerate(top_codes):
             try:
@@ -167,7 +167,7 @@ run_step("7. K线数据")
 try:
     if not spot.empty:
         klines = {}
-        top_codes = spot.nlargest(30, "pct_chg")["code"].tolist() if "pct_chg" in spot.columns else spot["code"].head(30).tolist()
+        top_codes = spot.nlargest(20, "pct_chg")["code"].tolist() if "pct_chg" in spot.columns else spot["code"].head(30).tolist()
         for code in top_codes:
             try:
                 hist = ak.stock_zh_a_hist(symbol=code, period="daily", adjust="qfq")
