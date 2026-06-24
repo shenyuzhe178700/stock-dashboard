@@ -1,9 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>A股量化选股系统 | {{DATE_SHORT}}</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <style>
 :root { --bg: #0b1120; --surface: #111827; --card: #1a2332; --border: #1e3a5f; --accent: #38bdf8; --accent2: #818cf8; --text: #e2e8f0; --text2: #94a3b8; --up: #22c55e; --down: #ef4444; --radius: 12px; }
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -35,7 +36,8 @@ body { font-family: -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft Ya
 .table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .table th { background: rgba(30,58,95,0.5); color: var(--accent); padding: 10px 14px; text-align: left; border-bottom: 2px solid var(--border); font-weight: 600; white-space: nowrap; font-size: 12px; }
 .table td { padding: 9px 14px; border-bottom: 1px solid rgba(30,58,95,0.3); white-space: nowrap; }
-.table tbody tr:hover { background: rgba(56,189,248,0.06); cursor: pointer; }
+.table tbody tr { cursor: pointer; transition: background 0.15s; }
+.table tbody tr:hover { background: rgba(56,189,248,0.08); }
 .rank { color: var(--text2); font-size: 12px; width: 32px; text-align: center; }
 .code { font-family: "SF Mono","Fira Code",monospace; color: var(--accent2); font-weight: 600; }
 .name { font-weight: 500; }
@@ -44,148 +46,188 @@ body { font-family: -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft Ya
 .bar-wrap { display: flex; align-items: center; gap: 8px; min-width: 100px; }
 .bar-wrap .bar { height: 6px; border-radius: 3px; min-width: 1px; }
 .bar-wrap span { font-size: 11px; color: var(--text2); }
-.badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 600; white-space: nowrap; }
+.badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 600; white-space: nowrap; display: inline-block; margin: 2px; }
 .badge.hot { background: rgba(239,68,68,0.2); color: #ef4444; }
 .badge.warm { background: rgba(245,158,11,0.2); color: #f59e0b; }
 .badge.mild { background: rgba(56,189,248,0.2); color: #38bdf8; }
 .badge.cold { background: rgba(148,163,184,0.15); color: #94a3b8; }
+.badge.green { background: rgba(34,197,94,0.2); color: #22c55e; }
+.badge.red { background: rgba(239,68,68,0.2); color: #ef4444; }
 .chart { max-width: 100%; border-radius: var(--radius); border: 1px solid var(--border); }
 .report { background: #0b1625; border: 1px solid var(--border); border-radius: 8px; padding: 20px; font-size: 12px; line-height: 1.8; overflow-x: auto; white-space: pre-wrap; font-family: "SF Mono","Fira Code","Microsoft YaHei",monospace; color: var(--text2); max-height: 500px; overflow-y: auto; }
 .empty { text-align: center; padding: 40px; color: var(--text2); font-size: 14px; }
-.disclaimer { text-align: center; padding: 16px 24px; margin-top: 24px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text2); }
-input, select { outline: none; }
-#stockInput:focus, #stockSelect:focus { border-color: var(--accent) !important; }
-@media (max-width: 768px) {
-  .header { padding: 16px; }
-  .tabs { padding: 0 12px; }
-  .tab-btn { padding: 10px 14px; font-size: 13px; }
-  .content { padding: 12px; }
-  .stat-row { grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 12px; }
-  .card { padding: 14px; }
-}
+.disclaimer { text-align: center; padding: 24px; font-size: 11px; color: #475569; border-top: 1px solid var(--border); margin-top: 40px; }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 1000; justify-content: center; align-items: center; }
+.modal-overlay.show { display: flex; }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; width: 95vw; max-width: 1200px; max-height: 90vh; overflow-y: auto; padding: 0; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); z-index: 10; border-radius: 16px 16px 0 0; }
+.modal-header h2 { font-size: 18px; color: var(--accent); }
+.modal-header .close-btn { background: none; border: 1px solid var(--border); color: var(--text2); padding: 6px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; font-family: inherit; }
+.modal-header .close-btn:hover { background: var(--border); color: var(--text); }
+.modal-body { padding: 20px 24px; }
+.kline-chart { width: 100%; height: 500px; border-radius: 8px; background: #0b1625; }
+.indicator-chart { width: 100%; height: 220px; border-radius: 8px; background: #0b1625; margin-top: 12px; }
+.search-box { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
+.search-box input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 10px 16px; border-radius: 8px; font-size: 14px; width: 200px; font-family: inherit; }
+.search-box input:focus { outline: none; border-color: var(--accent); }
+.search-box select { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 10px 16px; border-radius: 8px; font-size: 14px; min-width: 180px; font-family: inherit; }
+.search-box button { background: var(--accent); color: #0b1120; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; font-family: inherit; }
+.search-box button:hover { opacity: 0.9; }
+.score-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 12px; margin-bottom: 16px; }
+.score-card { background: #0b1625; border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; text-align: center; }
+.score-card .sc-label { font-size: 11px; color: var(--text2); letter-spacing: 1px; }
+.score-card .sc-value { font-size: 22px; font-weight: 700; margin: 4px 0; }
+.score-card .sc-trend { font-size: 11px; color: var(--text2); }
+.factor-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.factor-tag { font-size: 11px; padding: 4px 10px; border-radius: 20px; background: rgba(129,140,248,0.15); color: var(--accent2); }
+.indicator-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px,1fr)); gap: 10px; margin: 12px 0; }
+.indicator-item { background: #0b1625; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; }
+.indicator-item .ind-label { font-size: 11px; color: var(--text2); }
+.indicator-item .ind-value { font-size: 16px; font-weight: 600; color: var(--text); margin-top: 2px; }
+.fib-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 8px; margin: 8px 0; }
+.fib-item { background: #0b1625; border: 1px solid var(--border); border-radius: 6px; padding: 8px; text-align: center; font-size: 12px; }
+.fib-item .fib-pct { color: var(--accent); font-weight: 600; }
+.fib-item .fib-price { color: var(--text2); }
 </style>
 </head>
 <body>
-
-<header class="header">
+<div class="header">
   <div class="header-left">
-    <h1>A股量化选股系统 <span>v2.0</span></h1>
-    <div class="sub">多因子 · 热点板块 · 资金流向 · 个股分析 | LightGBM驱动</div>
+    <h1>A股量化选股系统 <span>多因子+实时+技术分析</span></h1>
+    <div class="sub">热点板块 | 资金流向 | 个股分析 | K线图表 | 短线/中线/长线预测</div>
   </div>
   <div class="header-right">
     <div class="date"><span class="live"></span>数据更新: {{NOW}}</div>
-    <div style="font-size:11px;color:var(--text2);margin-top:2px">baostock实时行情 | HS300+全A</div>
   </div>
-</header>
-
-<div class="tabs">
-  <button class="tab-btn active" data-tab="hot">热点板块</button>
-  <button class="tab-btn" data-tab="capital">资金认可度</button>
-  <button class="tab-btn" data-tab="monthly">月度选股</button>
-  <button class="tab-btn" data-tab="backtest">回测曲线</button>
-  <button class="tab-btn" data-tab="search">个股分析</button>
-  <button class="tab-btn" data-tab="about">系统说明</button>
 </div>
 
 <div class="stat-row">
   <div class="stat-card"><div class="label">短线标的</div><div class="value">{{HOT_COUNT}}</div><div class="desc">热点板块选股</div></div>
   <div class="stat-card"><div class="label">资金热门</div><div class="value">{{CAP_COUNT}}</div><div class="desc">主力认可个股</div></div>
   <div class="stat-card"><div class="label">月度选股</div><div class="value">{{STOCK_COUNT}}</div><div class="desc">多因子轮动</div></div>
-  <div class="stat-card"><div class="label">可查个股</div><div class="value">300</div><div class="desc">预分析走势</div></div>
-  <div class="stat-card"><div class="label">股票池</div><div class="value">5533</div><div class="desc">全A股覆盖</div></div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="hot">热点板块</button>
+  <button class="tab-btn" data-tab="capital">资金认可度</button>
+  <button class="tab-btn" data-tab="monthly">月度选股</button>
+  <button class="tab-btn" data-tab="backtest">回测曲线</button>
+  <button class="tab-btn" data-tab="analysis">个股分析(增强)</button>
+  <button class="tab-btn" data-tab="about">系统说明</button>
 </div>
 
 <div class="content">
 
-  <!-- Hot Sector -->
-  <div class="tab-content active" id="tab-hot">
-    <div class="summary">短线模型：5日动量 + 板块补涨因子 + 21个技术指标 | 筛选有上涨空间的板块和个股</div>
-    <div class="card"><h3>板块热度排行</h3><div class="table-wrap">{{SECTOR_TABLE}}</div></div>
-    <div class="card"><h3>短线选股池 (TOP 30)</h3><div class="table-wrap">{{HOT_TABLE}}</div></div>
+<!-- Tab 1 -->
+<div id="tab-hot" class="tab-content active">
+  <div class="summary">板块热度综合排名 | 5日动量 + 资金流向 + 上涨家数 | 点击股票代码查看K线图</div>
+  <div class="card"><h3>板块热度排行</h3><div class="table-wrap">{{SECTOR_TABLE}}</div></div>
+  <div class="card"><h3>短线选股池 (TOP 30)</h3><div class="table-wrap">{{HOT_TABLE}}</div></div>
+</div>
+
+<!-- Tab 2 -->
+<div id="tab-capital" class="tab-content">
+  <div class="summary">主力资金净流入排名 | 综合资金认可度 | 点击股票代码查看K线图</div>
+  <div class="card"><h3>资金认可板块 TOP 12</h3><div class="table-wrap">{{CAP_SECTOR_TABLE}}</div></div>
+  <div class="card"><h3>板块热门股</h3><div class="table-wrap">{{CAP_PICK_TABLE}}</div></div>
+</div>
+
+<!-- Tab 3 -->
+<div id="tab-monthly" class="tab-content">
+  <div class="summary">月度多因子轮动选股 | 价值+质量+动量+波动+流动性+成长 | 综合评分+趋势研判</div>
+  <div class="card"><h3>选股结果 (TOP 30)</h3><div class="table-wrap">{{STOCK_PICKS_TABLE}}</div></div>
+  <div class="card"><h3>选股报告</h3><div class="report">{{REPORT_TXT}}</div></div>
+</div>
+
+<!-- Tab 4 -->
+<div id="tab-backtest" class="tab-content">
+  <div class="card"><h3>策略净值曲线</h3>{{BACKTEST_IMG}}</div>
+</div>
+
+<!-- Tab 5: 增强个股分析 -->
+<div id="tab-analysis" class="tab-content">
+  <div class="summary">输入股票代码或名称 | 短线(5日)+中线(1月)+长线(3月) | MACD/KDJ/布林带/支撑阻力 | 点击代码查看K线</div>
+  <div class="search-box">
+    <input type="text" id="stockInput" placeholder="输入代码或名称..." onkeydown="if(event.keyCode==13)searchStock()">
+    <select id="stockSelect" onchange="selectStock()"><option value="">热门推荐...</option></select>
+    <button onclick="searchStock()">分析</button>
   </div>
-
-  <!-- Capital Flow -->
-  <div class="tab-content" id="tab-capital">
-    <div class="summary">资金认可度模型：主力净流入 + 大单占比 + 量比 | 识别资金最认可的板块及龙头</div>
-    <div class="card"><h3>资金认可板块 TOP 12</h3><div class="table-wrap">{{CAP_SECTOR_TABLE}}</div></div>
-    <div class="card"><h3>板块热门股</h3><div class="table-wrap">{{CAP_PICK_TABLE}}</div></div>
+  <div id="stockResult"><div class="empty">请输入股票代码或名称进行查询</div></div>
+  <div class="card" style="margin-top:20px">
+    <h3>高分推荐股票</h3>
+    <div class="table-wrap" id="topStocksTable"></div>
   </div>
+</div>
 
-  <!-- Monthly -->
-  <div class="tab-content" id="tab-monthly">
-    <div class="summary">月度多因子轮动：价值/动量/质量/波动率/流动性/成长 | LightGBM回归 | 沪深300</div>
-    <div class="card"><h3>选股结果 (TOP 30)</h3><div class="table-wrap">{{STOCK_PICKS_TABLE}}</div></div>
-    <div class="card"><h3>选股报告</h3><div class="report">{{REPORT_TXT}}</div></div>
-  </div>
+<!-- Tab 6 -->
+<div id="tab-about" class="tab-content">
+  <div class="card">
+    <h3>系统说明</h3>
+    <div class="report">
+=== A股量化选股系统 v4 ===
+数据源: akshare (东方财富/实时) + baostock (历史)
+更新: 每日自动 (GitHub Actions, UTC 10:00)
+网站: https://shenyuzhe178700.github.io/stock-dashboard/
 
-  <!-- Backtest -->
-  <div class="tab-content" id="tab-backtest">
-    <div class="card"><h3>策略净值曲线</h3>{{BACKTEST_IMG}}</div>
-  </div>
+=== 功能模块 ===
+[热点板块] 板块涨幅+资金流向+上涨家数 综合评分
+[资金认可度] 主力资金净流入+涨幅双重排名
+[月度选股] 6维因子模型(价值/质量/动量/波动/流动性/成长)
+[个股分析] 短线(5日)+中线(1月)+长线(3月)综合评分
+            MACD/KDJ/布林带/支撑阻力/斐波那契
+            点击任意股票代码弹出K线图
 
-  <!-- Stock Search -->
-  <div class="tab-content" id="tab-search">
-    <div class="summary">输入股票代码查询短线/中线走势分析</div>
-    <div class="card">
-      <h3>个股走势分析</h3>
-      <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
-        <input type="text" id="stockInput" placeholder="输入代码, 如 600519" 
-          style="flex:1;min-width:180px;max-width:300px;padding:10px 16px;background:#0b1625;border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:monospace"
-          onkeyup="searchStock()">
-        <select id="stockSelect" onchange="selectStock()" 
-          style="padding:10px 12px;background:#0b1625;border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;max-width:240px">
-          <option value="">热门股票...</option>
-        </select>
-      </div>
-      <div id="stockResult" style="min-height:200px"><div class="empty">输入股票代码查看分析结果</div></div>
-    </div>
-    <div class="card">
-      <h3>推荐关注个股</h3>
-      <div id="topStocksTable" class="table-wrap"></div>
-    </div>
-  </div>
-
-  <!-- About -->
-  <div class="tab-content" id="tab-about">
-    <div class="card"><h3>系统架构</h3>
-      <div class="report">数据源: baostock A股全量日线
-股票池: 沪深300 + 全A股(5533只)
-模型: LightGBM + 多因子 + 资金流向
-
-运行命令:
-  python main.py fetch      采集行情
-  python main.py hot        热点板块选股
-  python main.py capital    资金认可度
-  python main.py all        月度多因子
-  python main.py dashboard  启动交互看板
-
-个股分析:
-  指标: 5日涨跌 / RSI / 量比 / 偏离均线 / 振幅 / 换手率
-  评分: 综合技术面 + 动量 + 量价 打分(0-40)
-  趋势: 短线(5日) + 中线(月度) 双维度判断
-
-风险提示: 量化模型基于历史数据，不构成投资建议。
-仅供研究学习使用，入市需谨慎。</div>
+=== 免责声明 ===
+本系统仅供研究学习，不构成投资建议。
+股市有风险，投资需谨慎。
     </div>
   </div>
+</div>
 
 </div>
 
-<div class="disclaimer">本系统仅供研究学习，不构成投资建议 | 数据: baostock | 更新: {{NOW}}</div>
+<!-- K线弹窗 -->
+<div class="modal-overlay" id="klineModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="klineTitle">K线走势</h2>
+      <button class="close-btn" onclick="closeKline()">关闭</button>
+    </div>
+    <div class="modal-body">
+      <div class="stat-row" id="klineStats"></div>
+      <div class="kline-chart" id="klineChart"></div>
+      <div class="indicator-chart" id="indicatorChart"></div>
+    </div>
+  </div>
+</div>
 
-<!-- STOCK_DATA_JSON -->
+<div class="disclaimer">本系统仅供研究学习，不构成投资建议 | 数据: akshare+baostock | 更新: {{NOW}}</div>
 <script>
 var STOCK_DATA = __STOCK_DATA_PLACEHOLDER__;
+var KLINE_DATA = __KLINE_DATA_PLACEHOLDER__;
+var klineChartInst = null;
+var indChartInst = null;
+
+function findStock(input) {
+  input = (input||"").trim();
+  if (!input) return null;
+  for (var i = 0; i < STOCK_DATA.length; i++) {
+    var d = STOCK_DATA[i];
+    if (d.code === input || d.name === input || d.code.indexOf(input) >= 0 || (d.name && d.name.indexOf(input) >= 0)) return d;
+  }
+  for (var i = 0; i < STOCK_DATA.length; i++) {
+    if (STOCK_DATA[i].code.indexOf(input) === 0) return STOCK_DATA[i];
+  }
+  return null;
+}
 
 function searchStock() {
-  var input = document.getElementById("stockInput").value.trim().toUpperCase();
-  if (!input) { showTopPicks(); return; }
-  var found = null;
-  for (var i = 0; i < STOCK_DATA.length; i++) {
-    if (STOCK_DATA[i].code === input || STOCK_DATA[i].code.indexOf(input) === 0) { found = STOCK_DATA[i]; break; }
-  }
-  if (found) { document.getElementById("stockSelect").value = found.code; showAnalysis(found); }
-  else { document.getElementById("stockResult").innerHTML = '<div class="empty">未找到: ' + input + '</div>'; }
+  var input = document.getElementById("stockInput").value.trim();
+  var code = document.getElementById("stockSelect").value;
+  if (!input && !code) return;
+  var found = findStock(input || code);
+  if (found) { document.getElementById("stockInput").value = found.code; showAnalysis(found); }
+  else { document.getElementById("stockResult").innerHTML = '<div class="empty">未找到: ' + (input||code) + '</div>'; }
 }
 
 function selectStock() {
@@ -195,65 +237,237 @@ function selectStock() {
   searchStock();
 }
 
+function fmtPct(v) {
+  if (v === undefined || v === null || isNaN(v)) return "N/A";
+  var p = v * 100;
+  return '<span class="'+(p>=0?'up':'down')+'">'+(p>=0?'+':'')+p.toFixed(2)+'%</span>';
+}
+
 function showAnalysis(d) {
-  var score = d.total_score;
+  if (!d) return;
+  var score = d.total_score || 0;
   var sc = score > 25 ? "#22c55e" : score > 18 ? "#38bdf8" : score > 10 ? "#f59e0b" : score > 3 ? "#f97316" : "#ef4444";
-  var ret5c = d.ret_5d >= 0 ? "up" : "down";
-  var rsi = d.rsi_14;
-  var rc = rsi > 70 ? "#ef4444" : rsi < 30 ? "#22c55e" : "#38bdf8";
-  var sigs = (d.signals||[]).map(function(s){ return '<span class="badge '+(s.indexOf("超卖")>=0||s.indexOf("超跌")>=0?"mild":"cold")+'">'+s+'</span>'; }).join(" ");
-  
-  var h = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">'+
-    '<div class="stat-card"><div class="label">综合评分</div><div class="value" style="color:'+sc+'">'+score+'</div><div class="desc">'+d.rating+'</div></div>'+
-    '<div class="stat-card"><div class="label">5日涨跌</div><div class="value '+ret5c+'">'+(d.ret_5d*100).toFixed(2)+'%</div><div class="desc">'+d.short_trend+'</div></div>'+
-    '<div class="stat-card"><div class="label">中线趋势(月)</div><div class="value" style="color:'+(d.ret_1m>=0?"#22c55e":"#ef4444")+'">'+(d.ret_1m*100).toFixed(1)+'%</div><div class="desc">'+d.mid_trend+'</div></div>'+
-    '<div class="stat-card"><div class="label">RSI(14)</div><div class="value" style="color:'+rc+'">'+rsi.toFixed(1)+'</div><div class="desc">'+(rsi>70?"超买":rsi<30?"超卖":"正常")+'</div></div></div>'+
-    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:12px">'+
-    '<div class="stat-card"><div class="label">量比(5日)</div><div class="value" style="font-size:16px;color:#38bdf8">'+d.vol_ratio_5d.toFixed(2)+'</div></div>'+
-    '<div class="stat-card"><div class="label">距20日均线</div><div class="value" style="font-size:16px;color:'+(d.bias_20>=0?"#22c55e":"#ef4444")+'">'+(d.bias_20*100).toFixed(1)+'%</div></div>'+
-    '<div class="stat-card"><div class="label">振幅</div><div class="value" style="font-size:16px;color:#f59e0b">'+(d.amplitude*100).toFixed(1)+'%</div></div>'+
-    '<div class="stat-card"><div class="label">换手率</div><div class="value" style="font-size:16px;color:#94a3b8">'+d.turnover_rate.toFixed(2)+'%</div></div></div>'+
-    '<div style="margin-top:12px;padding:10px 14px;background:#0b1625;border-radius:8px;border:1px solid var(--border)">'+
-    '<span style="color:var(--text2);font-size:12px">信号: </span>'+sigs+'<span style="color:#64748b;font-size:11px;margin-left:12px">更新: '+d.update_time+'</span></div>';
+  var rc = (d.rsi_14 || 50) > 70 ? "#ef4444" : (d.rsi_14 || 50) < 30 ? "#22c55e" : "#38bdf8";
+  var sigs = (d.signals || []).map(function(s) { return '<span class="badge ' + (s.indexOf("超卖") >= 0 || s.indexOf("超跌") >= 0 || s.indexOf("底背离") >= 0 ? "green" : "mild") + '">' + s + '</span>'; }).join(" ");
+  var sf = (d.short_factors || []).map(function(f) { return '<span class="factor-tag">' + f + '</span>'; }).join("");
+  var mf = (d.mid_factors || []).map(function(f) { return '<span class="factor-tag">' + f + '</span>'; }).join("");
+  var lf = (d.long_factors || []).map(function(f) { return '<span class="factor-tag">' + f + '</span>'; }).join("");
+  var fib = d.fibonacci || {};
+  var fibHtml = "";
+  if (fib.fib_0) {
+    fibHtml = '<div style="margin-top:12px"><span style="font-size:12px;color:var(--text2)">Fibonacci回调位: </span><div class="fib-grid">';
+    fibHtml += '<div class="fib-item"><div class="fib-pct">0%</div><div class="fib-price">' + (fib.fib_0 || 0) + '</div></div>';
+    fibHtml += '<div class="fib-item"><div class="fib-pct">38.2%</div><div class="fib-price">' + (fib.fib_382 || 0) + '</div></div>';
+    fibHtml += '<div class="fib-item"><div class="fib-pct">50%</div><div class="fib-price">' + (fib.fib_50 || 0) + '</div></div>';
+    fibHtml += '<div class="fib-item"><div class="fib-pct">61.8%</div><div class="fib-price">' + (fib.fib_618 || 0) + '</div></div>';
+    fibHtml += '<div class="fib-item"><div class="fib-pct">100%</div><div class="fib-price">' + (fib.fib_100 || 0) + '</div></div>';
+    fibHtml += '</div></div>';
+  }
+  var h = '';
+  h += '<div class="score-grid">';
+  h += '<div class="score-card"><div class="sc-label">综合评分</div><div class="sc-value" style="color:' + sc + '">' + score.toFixed(1) + '</div><div class="sc-trend">' + d.rating + '</div></div>';
+  h += '<div class="score-card"><div class="sc-label">短线(5日)</div><div class="sc-value" style="color:' + ((d.short_score||0) > 20 ? "#22c55e" : (d.short_score||0) > 10 ? "#38bdf8" : "#f59e0b") + '">' + (d.short_score || 0).toFixed(1) + '</div><div class="sc-trend">' + d.short_trend + '</div></div>';
+  h += '<div class="score-card"><div class="sc-label">中线(1月)</div><div class="sc-value" style="color:' + ((d.mid_score||0) > 20 ? "#22c55e" : (d.mid_score||0) > 10 ? "#38bdf8" : "#f59e0b") + '">' + (d.mid_score || 0).toFixed(1) + '</div><div class="sc-trend">' + d.mid_trend + '</div></div>';
+  h += '<div class="score-card"><div class="sc-label">长线(3月)</div><div class="sc-value" style="color:' + ((d.long_score||0) > 20 ? "#22c55e" : (d.long_score||0) > 10 ? "#38bdf8" : "#f59e0b") + '">' + (d.long_score || 0).toFixed(1) + '</div><div class="sc-trend">' + d.long_trend + '</div></div>';
+  h += '</div>';
+  h += '<div style="margin:6px 0"><span style="font-size:11px;color:var(--text2)">短线因子: </span><div class="factor-tags">' + sf + '</div></div>';
+  h += '<div style="margin:6px 0"><span style="font-size:11px;color:var(--text2)">中线因子: </span><div class="factor-tags">' + mf + '</div></div>';
+  h += '<div style="margin:6px 0"><span style="font-size:11px;color:var(--text2)">长线因子: </span><div class="factor-tags">' + lf + '</div></div>';
+  h += '<div class="indicator-row">';
+  h += '<div class="indicator-item"><div class="ind-label">MACD DIF</div><div class="ind-value" style="color:' + ((d.macd_dif||0) > 0 ? "#22c55e" : "#ef4444") + '">' + (d.macd_dif || 0).toFixed(4) + '</div></div>';
+  h += '<div class="indicator-item"><div class="ind-label">MACD DEA</div><div class="ind-value" style="color:' + ((d.macd_dea||0) > 0 ? "#22c55e" : "#ef4444") + '">' + (d.macd_dea || 0).toFixed(4) + '</div></div>';
+  h += '<div class="indicator-item"><div class="ind-label">MACD柱</div><div class="ind-value">' + (d.macd_bar || 0).toFixed(4) + '</div></div>';
+  h += '<div class="indicator-item"><div class="ind-label">MACD信号</div><div class="ind-value" style="font-size:13px;color:' + ((d.macd_signal || "").indexOf("金叉") >= 0 ? "#22c55e" : "#ef4444") + '">' + (d.macd_signal || "N/A") + '</div></div>';
+  h += '<div class="indicator-item"><div class="ind-label">KDJ-K</div><div class="ind-value">' + (d.kdj_k || 50).toFixed(1) + '</div></div>';
+  h += '<div class="indicator-item"><div class="ind-label">KDJ-D</div><div class="ind-value">' + (d.kdj_d || 50).toFixed(1) + '</div></div>';
+  h += '<div class="indicator-item"><div class="ind-label">KDJ-J</div><div class="ind-value" style="color:' + ((d.kdj_j || 50) > 80 ? "#ef4444" : (d.kdj_j || 50) < 20 ? "#22c55e" : "var(--text)") + '">' + (d.kdj_j || 50).toFixed(1) + '</div></div>';
+  h += '<div class="indicator-item"><div class="ind-label">KDJ信号</div><div class="ind-value" style="font-size:13px;color:' + ((d.kdj_signal || "").indexOf("超卖") >= 0 || (d.kdj_signal || "").indexOf("反弹") >= 0 ? "#22c55e" : "#ef4444") + '">' + (d.kdj_signal || "N/A") + '</div></div>';
+  h += '<div class="indicator-item"><div class="ind-label">RSI(14)</div><div class="ind-value" style="color:' + rc + '">' + (d.rsi_14 || 50).toFixed(1) + '</div></div>';
+  h += '<div class="indicator-item"><div class="ind-label">成交量</div><div class="ind-value" style="font-size:13px">' + (d.vol_analysis || "N/A") + '</div></div>';
+  h += '<div class="indicator-item"><div class="ind-label">ATR波动</div><div class="ind-value">' + (d.atr || 0).toFixed(2) + '%</div></div>';
+  h += '</div>';
+  h += '<div class="indicator-row">';
+  h += '<div class="indicator-item"><div class="ind-label">支撑位</div><div class="ind-value" style="color:#22c55e">$' + (d.support || 0) + '</div></div>';
+  h += '<div class="indicator-item"><div class="ind-label">阻力位</div><div class="ind-value" style="color:#ef4444">$' + (d.resistance || 0) + '</div></div>';
+  h += '<div class="indicator-item"><div class="ind-label">现价</div><div class="ind-value">$' + (d.close || 0) + '</div></div>';
+  h += '<div class="indicator-item"><div class="ind-label">MA5/MA20</div><div class="ind-value">' + (d.ma5 || 0).toFixed(2) + '/' + (d.ma20 || 0).toFixed(2) + '</div></div>';
+  h += '<div class="indicator-item"><div class="ind-label">5日涨跌</div><div class="ind-value">' + fmtPct(d.ret_5d) + '</div></div>';
+  h += '<div class="indicator-item"><div class="ind-label">月涨跌</div><div class="ind-value">' + fmtPct(d.ret_20d) + '</div></div>';
+  h += '</div>';
+  h += fibHtml;
+  h += '<div style="margin-top:12px;padding:10px 14px;background:#0b1625;border-radius:8px;border:1px solid var(--border)">';
+  h += '<span style="color:var(--text2);font-size:12px">信号: </span>' + sigs;
+  h += '<span style="color:#64748b;font-size:11px;margin-left:12px">更新: ' + (d.update_time || "N/A") + '</span></div>';
+  h += '<div style="margin-top:10px"><button class="badge hot" style="cursor:pointer;padding:8px 20px;font-size:13px;border:none" onclick="openKline(\'' + d.code + '\')">查看K线图</button></div>';
   document.getElementById("stockResult").innerHTML = h;
 }
 
 function showTopPicks() {
+  if (!STOCK_DATA || !STOCK_DATA.length) return;
   var top = [];
   for (var i = 0; i < STOCK_DATA.length; i++) {
-    if (STOCK_DATA[i].total_score > 18) top.push(STOCK_DATA[i]);
+    if ((STOCK_DATA[i].total_score || 0) > 14) top.push(STOCK_DATA[i]);
   }
-  top.sort(function(a,b){ return b.total_score - a.total_score; });
+  top.sort(function(a, b) { return (b.total_score || 0) - (a.total_score || 0); });
   var rows = "";
-  for (var i = 0; i < Math.min(top.length, 30); i++) {
+  for (var i = 0; i < Math.min(top.length, 40); i++) {
     var d = top[i];
-    rows += '<tr onclick="showStock(\''+d.code+'\')"><td class="rank">'+(i+1)+'</td><td class="code">'+d.code+'</td>'+
-      '<td class="'+(d.ret_5d>=0?"up":"down")+'">'+(d.ret_5d*100).toFixed(2)+'%</td>'+
-      '<td>'+d.short_trend+'</td><td>'+d.mid_trend+'</td>'+
-      '<td><span class="badge '+(d.rating==="强烈推荐"?"hot":"warm")+'">'+d.rating+'</span></td>'+
-      '<td><div class="bar-wrap"><div class="bar" style="width:'+Math.min(d.total_score/35*100,100)+'%;background:#22c55e"></div><span>'+d.total_score+'</span></div></td></tr>';
+    var name = d.name || d.code;
+    rows += '<tr onclick="showAnalysis(STOCK_DATA.find(function(x){return x.code===%27' + d.code + '%27}))" title="Click for full analysis | Click code for K-line">';
+    rows += '<td class="rank">' + (i + 1) + '</td>';
+    rows += '<td class="code" style="cursor:pointer" onclick="event.stopPropagation();openKline(%27' + d.code + '%27)">' + d.code + '</td>';
+    rows += '<td class="name">' + name + '</td>';
+    rows += '<td class="' + (d.ret_5d >= 0 ? "up" : "down") + '">' + (d.ret_5d * 100).toFixed(2) + '%</td>';
+    rows += '<td style="color:' + (d.short_score > 20 ? "#22c55e" : "#38bdf8") + '">' + d.short_trend + '</td>';
+    rows += '<td style="color:' + (d.mid_score > 20 ? "#22c55e" : "#38bdf8") + '">' + d.mid_trend + '</td>';
+    rows += '<td style="color:' + (d.long_score > 20 ? "#22c55e" : "#38bdf8") + '">' + d.long_trend + '</td>';
+    rows += '<td><span class="badge ' + (d.rating_cls || "mild") + '">' + d.rating + '</span></td>';
+    rows += '<td><div class="bar-wrap"><div class="bar" style="width:' + Math.min((d.total_score || 0) / 40 * 100, 100) + '%;background:#22c55e"></div><span>' + (d.total_score || 0).toFixed(1) + '</span></div></td>';
+    rows += '</tr>';
   }
-  document.getElementById("topStocksTable").innerHTML = '<table class="table"><thead><tr><th>#</th><th>代码</th><th>5日涨跌</th><th>短线</th><th>中线</th><th>评级</th><th>评分</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  document.getElementById("topStocksTable").innerHTML = '<table class="table"><thead><tr><th>#</th><th>代码(K线)</th><th>名称</th><th>5日</th><th>短线</th><th>中线</th><th>长线</th><th>评级</th><th>评分</th></tr></thead><tbody>' + rows + '</tbody></table>';
   var sel = document.getElementById("stockSelect");
-  sel.innerHTML = '<option value="">热门股票...</option>';
-  for (var i = 0; i < Math.min(top.length, 20); i++) {
-    sel.innerHTML += '<option value="'+top[i].code+'">'+top[i].code+'</option>';
+  sel.innerHTML = '<option value="">热门推荐...</option>';
+  for (var i = 0; i < Math.min(top.length, 30); i++) {
+    sel.innerHTML += '<option value="' + top[i].code + '">' + top[i].code + ' ' + (top[i].name || '') + '</option>';
   }
 }
 
-function showStock(code) { document.getElementById("stockInput").value = code; searchStock(); }
+// ===== K-line Modal =====
+function openKline(code) {
+  var modal = document.getElementById("klineModal");
+  document.getElementById("klineTitle").textContent = "K-line Chart - " + code;
+  var stockInfo = findStock(code);
+  if (stockInfo) {
+    document.getElementById("klineStats").innerHTML =
+      '<div class="stat-card"><div class="label">Price</div><div class="value" style="font-size:20px">' + (stockInfo.close || 0) + '</div></div>' +
+      '<div class="stat-card"><div class="label">5D Change</div><div class="value ' + (stockInfo.ret_5d >= 0 ? "up" : "down") + '" style="font-size:20px">' + (stockInfo.ret_5d * 100).toFixed(2) + '%</div></div>' +
+      '<div class="stat-card"><div class="label">Short Score</div><div class="value" style="font-size:20px;color:' + (stockInfo.short_score > 20 ? "#22c55e" : "#38bdf8") + '">' + (stockInfo.short_score || 0).toFixed(1) + '</div></div>' +
+      '<div class="stat-card"><div class="label">Rating</div><div class="value" style="font-size:20px;color:#38bdf8">' + (stockInfo.rating || "N/A") + '</div></div>';
+  }
+  modal.classList.add("show");
+  setTimeout(function() { renderKlineChart(code); }, 100);
+}
 
-// Tab switching
+function closeKline() {
+  document.getElementById("klineModal").classList.remove("show");
+  if (klineChartInst) { klineChartInst.dispose(); klineChartInst = null; }
+  if (indChartInst) { indChartInst.dispose(); indChartInst = null; }
+}
+
+function calcMA(data, n) {
+  var result = [];
+  for (var i = 0; i < data.length; i++) {
+    if (i < n - 1) { result.push(null); continue; }
+    var sum = 0;
+    for (var j = i - n + 1; j <= i; j++) sum += data[j][1];
+    result.push(+(sum / n).toFixed(2));
+  }
+  return result;
+}
+
+function generateMockKline(d) {
+  var data = [];
+  var base = d.close || 10;
+  var vol = 10000000;
+  var now = new Date();
+  for (var i = 120; i >= 0; i--) {
+    var dt = new Date(now);
+    dt.setDate(dt.getDate() - i);
+    var ds = dt.toISOString().slice(0, 10);
+    var change = (Math.random() - 0.48) * base * 0.03;
+    var open = base;
+    var close = base + change;
+    var high = Math.max(open, close) * (1 + Math.random() * 0.02);
+    var low = Math.min(open, close) * (1 - Math.random() * 0.02);
+    var v = vol * (0.5 + Math.random());
+    data.push([ds, +open.toFixed(2), +close.toFixed(2), +low.toFixed(2), +high.toFixed(2), Math.floor(v), 0, 0, 0, 50, 50, 50, close * 1.05, close, close * 0.95, close, close, close, close]);
+    base = close;
+  }
+  return data;
+}
+
+function renderKlineChart(code) {
+  var kd = KLINE_DATA && KLINE_DATA[code] ? KLINE_DATA[code] : null;
+  var rawData = kd ? kd.data : [];
+  if (!rawData || rawData.length === 0) {
+    var stockInfo = findStock(code);
+    if (stockInfo && stockInfo.close) rawData = generateMockKline(stockInfo);
+  }
+  if (rawData.length === 0) {
+    document.getElementById("klineChart").innerHTML = '<div class="empty">No K-line data available</div>';
+    return;
+  }
+  var dates = [], ohlc = [], volumes = [], difData = [], deaData = [], macdData = [], kData = [], dData = [], jData = [];
+  for (var i = 0; i < rawData.length; i++) {
+    var row = rawData[i];
+    dates.push(row[0]);
+    ohlc.push([row[1], row[2], row[3], row[4]]);
+    volumes.push(row[5] || 0);
+    if (row.length > 6) { difData.push(row[6] || 0); deaData.push(row[7] || 0); macdData.push(row[8] || 0); }
+    if (row.length > 9) { kData.push(row[9] || 50); dData.push(row[10] || 50); jData.push(row[11] || 50); }
+  }
+  var kDom = document.getElementById("klineChart");
+  if (klineChartInst) klineChartInst.dispose();
+  klineChartInst = echarts.init(kDom);
+  klineChartInst.setOption({
+    backgroundColor: '#0b1625',
+    tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+    grid: [{ left: '8%', right: '8%', top: '5%', height: '55%' }, { left: '8%', right: '8%', top: '68%', height: '14%' }],
+    xAxis: [
+      { type: 'category', data: dates, gridIndex: 0, axisLine: { lineStyle: { color: '#1e3a5f' } }, axisLabel: { color: '#94a3b8', fontSize: 10 } },
+      { type: 'category', data: dates, gridIndex: 1, axisLine: { lineStyle: { color: '#1e3a5f' } }, axisLabel: { show: false } }
+    ],
+    yAxis: [
+      { gridIndex: 0, scale: true, axisLine: { lineStyle: { color: '#1e3a5f' } }, axisLabel: { color: '#94a3b8' } },
+      { gridIndex: 1, scale: true, axisLine: { lineStyle: { color: '#1e3a5f' } }, axisLabel: { color: '#94a3b8', fontSize: 10 } }
+    ],
+    series: [
+      { name: 'K', type: 'candlestick', data: ohlc, xAxisIndex: 0, yAxisIndex: 0, itemStyle: { color: '#ef4444', color0: '#22c55e', borderColor: '#ef4444', borderColor0: '#22c55e', borderWidth: 1.5 } },
+      { name: 'MA5', type: 'line', data: calcMA(ohlc, 5), xAxisIndex: 0, yAxisIndex: 0, lineStyle: { color: '#f59e0b', width: 1 }, symbol: 'none', smooth: true },
+      { name: 'MA10', type: 'line', data: calcMA(ohlc, 10), xAxisIndex: 0, yAxisIndex: 0, lineStyle: { color: '#38bdf8', width: 1 }, symbol: 'none', smooth: true },
+      { name: 'MA20', type: 'line', data: calcMA(ohlc, 20), xAxisIndex: 0, yAxisIndex: 0, lineStyle: { color: '#818cf8', width: 1 }, symbol: 'none', smooth: true },
+      { name: 'Vol', type: 'bar', data: volumes, xAxisIndex: 1, yAxisIndex: 1, itemStyle: { color: function(p) { return ohlc[p.dataIndex][1] >= ohlc[p.dataIndex][0] ? 'rgba(239,68,68,0.5)' : 'rgba(34,197,94,0.5)'; } } }
+    ]
+  });
+  var iDom = document.getElementById("indicatorChart");
+  if (indChartInst) indChartInst.dispose();
+  indChartInst = echarts.init(iDom);
+  indChartInst.setOption({
+    backgroundColor: '#0b1625',
+    tooltip: { trigger: 'axis' },
+    legend: { data: ['DIF', 'DEA', 'MACD', 'K', 'D', 'J'], textStyle: { color: '#94a3b8', fontSize: 10 }, top: 0 },
+    grid: { left: '8%', right: '8%', top: '15%', bottom: '5%' },
+    xAxis: { type: 'category', data: dates, axisLine: { lineStyle: { color: '#1e3a5f' } }, axisLabel: { color: '#94a3b8', fontSize: 10 } },
+    yAxis: { axisLine: { lineStyle: { color: '#1e3a5f' } }, axisLabel: { color: '#94a3b8', fontSize: 10 } },
+    series: [
+      { name: 'DIF', type: 'line', data: difData, lineStyle: { color: '#f59e0b', width: 1 }, symbol: 'none' },
+      { name: 'DEA', type: 'line', data: deaData, lineStyle: { color: '#38bdf8', width: 1 }, symbol: 'none' },
+      { name: 'MACD', type: 'bar', data: macdData, itemStyle: { color: function(p) { return p.value >= 0 ? 'rgba(239,68,68,0.4)' : 'rgba(34,197,94,0.4)'; } } },
+      { name: 'K', type: 'line', data: kData, lineStyle: { color: '#f59e0b', width: 1 }, symbol: 'none' },
+      { name: 'D', type: 'line', data: dData, lineStyle: { color: '#38bdf8', width: 1 }, symbol: 'none' },
+      { name: 'J', type: 'line', data: jData, lineStyle: { color: '#818cf8', width: 1 }, symbol: 'none' }
+    ]
+  });
+  window.addEventListener('resize', function() { if (klineChartInst) klineChartInst.resize(); if (indChartInst) indChartInst.resize(); });
+}
+
+// Event listeners
+document.getElementById("klineModal").addEventListener("click", function(e) { if (e.target === this) closeKline(); });
 document.querySelectorAll(".tab-btn").forEach(function(btn) {
   btn.addEventListener("click", function() {
     var tab = this.dataset.tab;
-    document.querySelectorAll(".tab-btn").forEach(function(b){ b.classList.remove("active"); });
-    document.querySelectorAll(".tab-content").forEach(function(c){ c.classList.remove("active"); });
+    document.querySelectorAll(".tab-btn").forEach(function(b) { b.classList.remove("active"); });
+    document.querySelectorAll(".tab-content").forEach(function(c) { c.classList.remove("active"); });
     this.classList.add("active");
     document.getElementById("tab-" + tab).classList.add("active");
   });
 });
-
+document.addEventListener("DOMContentLoaded", function() {
+  document.body.addEventListener("click", function(e) {
+    if (e.target.classList.contains("code")) { var code = e.target.textContent.trim(); if (code && code.length >= 6) openKline(code); }
+  });
+});
 showTopPicks();
 </script>
 </body>
